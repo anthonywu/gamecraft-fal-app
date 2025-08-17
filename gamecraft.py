@@ -1,10 +1,12 @@
+import json
 import fal
 from fal.container import ContainerImage
 from fal.toolkit import (
+    File as FalFile,
     Image as FalImage,
-    Video as FalVideo,
+    Video as FalVideo,  # noqa
 )
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 
 class ModelWarmupError(Exception): ...
@@ -22,13 +24,43 @@ class Input(BaseModel):
         description="The source image to generate a video from.",
         default="overexposed, low quality, deformation, a poor composition, bad hands, bad teeth, bad eyes, bad limbs, distortion, blurring, text, subtitles, static, picture, black border.",
     )
+    action_list: str = Field(
+        description="JSON list of camera actions: w=forward, a=left, d=right, s=backward",
+        default=json.dumps(["w", "s", "d", "a"]),
+        examples=[
+            json.dumps(["w", "w", "w", "a", "a", "a"]),  # go forward 3x, turn left 3x
+            json.dumps(["d", "d", "d", "d"]),  # pull back camera
+        ],
+    )
+    action_speed_list: str = Field(
+        description="JSON list of speeds to match action_list. Must be same length as action_list.",
+        default=json.dumps([0.2, 0.2, 0.2, 0.2]),
+        examples=[
+            json.dumps([0.1, 0.1, 0.1, 0.1, 0.1, 0.1]),  # 6 actions
+            json.dumps([0.1, 0.2, 0.3, 0.4]),  # pull back camera from slow to fast
+        ],
+    )
     cfg_scale: float = Field(description="CFG Scale", default=2.0)
     infer_steps: int = Field(description="Number of Inference Steps", default=5)
     seed: int = Field(description="Generation Seed", default=42)
 
+    def parse_action_fields(self):
+        a_list = json.loads(self.action_list)
+        s_list = json.loads(self.action_speed_list)
+        if len(a_list) != len(s_list):
+            raise ValidationError(
+                "action list and action speed list must be the same length"
+            )
+        if not all([_ in ["w", "s", "d", "a"] for _ in a_list]):
+            raise ValidationError("action list values must be be one of w s d a")
+        if not all([isinstance(_, (int, float)) for _ in s_list]):
+            raise ValidationError("action list values must be be one of int or float")
+        return a_list, s_list
+
 
 class Output(BaseModel):
-    video: FalVideo = Field(
+    # example: https://docs.fal.ai/serverless/tutorials/deploy-text-to-video-model
+    video: FalFile = Field(
         description="The generated Gamecraft video file",
     )
 
@@ -159,6 +191,7 @@ class FalGamecraftModel(
         # without refactoring *upstream code* right now
         from types import SimpleNamespace
 
+        action_list, action_speed_list = input.parse_action_fields()
         worker_args = SimpleNamespace(
             image_path=str(image_save_path),
             image_start=True,  # vs. video_start
@@ -169,8 +202,8 @@ class FalGamecraftModel(
             cfg_scale=input.cfg_scale,
             cpu_offload=False,
             seed=input.seed,
-            action_list=["w", "s", "d", "a"],
-            action_speed_list=[0.2, 0.2, 0.2, 0.2],  # Changed to floats
+            action_list=action_list,
+            action_speed_list=action_speed_list,
             flow_shift_eval_video=5.0,
             use_sage=False,
             use_deepcache=1,
@@ -241,9 +274,9 @@ class FalGamecraftModel(
         return expected_mp4_path
 
     @fal.endpoint("/")
-    def text_to_image(self, input: Input) -> Output:
+    def image_to_video(self, input: Input) -> Output:
         expected_mp4_path = self._torch_run(input)
-        return Output(video=FalVideo.from_path(expected_mp4_path))
+        return Output(video=FalFile.from_path(expected_mp4_path))
 
 
 # adapted code from sample_batch.py - keeping only image -> video and cut out video -> video for now
