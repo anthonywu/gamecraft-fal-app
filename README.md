@@ -2,7 +2,7 @@
 
 This is my trying [Fal Serverless](https://docs.fal.ai/serverless/tutorials/deploy-models-with-custom-containers) to deploy a
 [custom container image](https://docs.fal.ai/serverless/development/use-custom-container-image) and
-host it at: https://fal.ai/models/anthonywu/gamecraft (private for now until bugs fixed)
+host it at: https://fal.ai/models/anthonywu/gamecraft (not promotable for now until bugs fixed)
 
 The model deployed is [Hunyuan Gamecraft](https://hunyuan-gamecraft.github.io/) which as of Aug 16 does not have a inference provider in the USA, so I thought it was a neat challenge to push the boundaries of my CUDA understanding as well as pushing GPU inference timeout limits.
 

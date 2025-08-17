@@ -12,4 +12,4 @@ run:
     fal run gamecraft.py::FalGamecraftModel
 
 deploy:
-    fal deploy gamecraft.py::FalGamecraftModel --app-name gamecraft --auth private --strategy recreate --output json
+    fal deploy gamecraft.py::FalGamecraftModel --app-name gamecraft --auth public --strategy recreate --output json
