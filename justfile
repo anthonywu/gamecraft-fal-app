@@ -10,3 +10,6 @@ run-sh:
 run:
     ruff check gamecraft.py
     fal run gamecraft.py::FalGamecraftModel
+
+deploy:
+    fal deploy gamecraft.py::FalGamecraftModel --app-name gamecraft --auth private --strategy recreate --output json
